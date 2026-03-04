@@ -21,6 +21,8 @@ npm-debug.log
 __MACOSX
 
 /*
+!icon.svg
+!icon.png
 !.gitignore
 !.vscode
 !.vscodeignore
