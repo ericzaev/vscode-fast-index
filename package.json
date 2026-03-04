@@ -10,6 +10,16 @@
   "categories": [
     "Other"
   ],
+  "keywords": [
+    "search",
+    "fast",
+    "index",
+    "large project",
+    "поиск",
+    "быстрый поиск",
+    "индекс",
+    "большой проект"
+  ],
   "main": "./out/extension.js",
   "contributes": {
     "viewsContainers": {
