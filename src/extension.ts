@@ -14,7 +14,11 @@ export async function activate(context: vscode.ExtensionContext) {
 
     const sidebarProvider = new SidebarProvider(context.extensionUri, indexer);
     context.subscriptions.push(
-        vscode.window.registerWebviewViewProvider("fast-index.sidebar", sidebarProvider)
+        vscode.window.registerWebviewViewProvider("fast-index.sidebar", sidebarProvider, {
+            webviewOptions: {
+                retainContextWhenHidden: true
+            }
+        })
     );
 
     let indexCommand = vscode.commands.registerCommand('vscode-fast-index.buildIndex', () => {

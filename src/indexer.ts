@@ -74,8 +74,19 @@ export class ProjectIndexer {
         const config = vscode.workspace.getConfiguration('fastIndex');
         const excludePattern = config.get<string>('excludePatterns') || '{**/node_modules/**,**/.git/**}';
         const maxFileSizeKB = config.get<number>('maxFileSizeKB') || 512;
+        const includeExtensionsRaw = config.get<string>('includeExtensions') || '';
 
-        const files = await vscode.workspace.findFiles('**/*', excludePattern);
+        let includePattern = '**/*';
+        if (includeExtensionsRaw.trim()) {
+            const exts = includeExtensionsRaw.split(',').map(e => e.trim()).filter(e => e);
+            if (exts.length === 1) {
+                includePattern = `**/*.${exts[0]}`;
+            } else if (exts.length > 1) {
+                includePattern = `**/*.{${exts.join(',')}}`;
+            }
+        }
+
+        const files = await vscode.workspace.findFiles(includePattern, excludePattern);
         const filePaths = files.map(f => f.fsPath);
 
         vscode.window.withProgress({
@@ -89,9 +100,10 @@ export class ProjectIndexer {
                     if (msg.type === 'fileDone') {
                         filesProcessed++;
                         if (filesProcessed % 100 === 0) {
+                            const dirName = vscode.workspace.asRelativePath(path.dirname(msg.filePath));
                             progress.report({ 
                                 increment: (100 / filePaths.length) * 100,
-                                message: `Processed ${filesProcessed} of ${filePaths.length}`
+                                message: `Processed ${filesProcessed} of ${filePaths.length} [${dirName}]`
                             });
                         }
                     } else if (msg.type === 'batchDone') {
@@ -133,12 +145,26 @@ export class ProjectIndexer {
         this.removeFileFromIndex(filePath);
     }
 
-    public search(query: string): string[] {
+    public search(query: string, isRegex: boolean = false): string[] {
+        if (isRegex) {
+            return Array.from(this.fileToTrigrams.keys());
+        }
         if (query.length < 3) return [];
         const lowerQuery = query.toLowerCase();
+        
         const queryTrigrams: string[] = [];
-        for (let i = 0; i <= lowerQuery.length - 3; i++) queryTrigrams.push(lowerQuery.substring(i, i + 3));
-        if (queryTrigrams.length === 0) return [];
+        const words = lowerQuery.split(/\W+/).filter(w => w.length >= 3);
+        for (const word of words) {
+            for (let i = 0; i <= word.length - 3; i++) {
+                queryTrigrams.push(word.substring(i, i + 3));
+            }
+        }
+
+        // If the query contains special characters and doesn't yield any valid >=3 char words
+        // (e.g. "$$$" or "()=>"), fallback to scanning all cached files.
+        if (queryTrigrams.length === 0) {
+            return Array.from(this.fileToTrigrams.keys());
+        }
 
         let resultFiles = new Set(this.index.get(queryTrigrams[0]) || []);
         for (let i = 1; i < queryTrigrams.length; i++) {

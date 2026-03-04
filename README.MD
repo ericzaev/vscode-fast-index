@@ -1,6 +1,6 @@
 # Fast Project Indexer ⚡️
 
-**Fast Project Indexer** is a VS Code extension that brings instant, JetBrains-style full-text search to your workspace. 
+**Fast Project Indexer** is a VS Code extension that brings instant, JetBrains-style full-text search and replace functionality to your workspace. 
 
 Instead of searching text "on the fly" for every query, the plugin builds an inverted trigram index in the background once, providing instantaneous search results even in massive codebases.
 
@@ -8,28 +8,29 @@ Instead of searching text "on the fly" for every query, the plugin builds an inv
 
 * 🚀 **Instant Search:** Results appear as you type (from 3 characters) with zero lag.
 * 🧠 **Trigram Indexing:** Searches not just by whole words, but by word parts (e.g., `calc` will find `calculateTotalPrice`).
-* 🧵 **Multithreading (Worker Threads):** Heavy file parsing is offloaded to background OS threads. Your VS Code UI won't freeze during indexing.
-* 🔄 **Live Updates (File Watcher):** The index updates surgically when files are saved, created, or deleted. No full re-indexing required.
-* 💾 **Disk Caching:** The index is saved to the local extension storage. Upon restarting VS Code, the plugin instantly loads the ready-to-use database.
-* 🎨 **Native UI:** A custom sidebar view with code snippets and smart match highlighting that seamlessly adapts to your editor's theme.
+* 🔄 **Find & Replace:** Easily replace text across multiple files or one-by-one with an intuitive UI. Supports multiline code snippets and safe replacements via VS Code's `WorkspaceEdit` (Ctrl+Z to undo).
+* 🎯 **Advanced Matching:** Toggle Case-Sensitive (`Aa`) matching or Regular Expressions (`.*`) right from the search bar.
+* ⚡️ **Native Sidebar Integration:** A dedicated activity bar icon ⚡️ ensures the search doesn't clutter your built-in tools. Keeps its state even when you switch tabs.
+* 🧵 **Multithreading:** Heavy file parsing is offloaded to background OS threads. Your VS Code UI won't freeze during indexing.
+* 💾 **Disk Caching & Live Updates:** The index is saved locally and instantly loads upon restart. Live file watchers keep the index accurate as you code.
 
 ## 🚀 How to Use
 
 1. Open your project in VS Code.
-2. Press `Ctrl+Shift+P` (or `Cmd+Shift+P` on Mac) and run the command: **`Fast Index: Build Project Index`**.
-3. Wait for the completion notification (the plugin will analyze all files in the background).
-4. Open the standard VS Code Search panel (the magnifying glass icon 🔍).
-5. Expand the **Fast Index Search** view at the bottom.
-6. Start typing (at least 3 characters) — results with code highlighting will appear instantly. Click on a result to jump directly to the matched line.
-7. Use the **🔄** button next to the search input to rebuild the index manually if you update the exclusion settings.
+2. Click on the **Lightning Bolt (⚡️)** icon in the Activity Bar on the left.
+3. If it's your first time, the plugin will ask to build the index. You can also click the **⚙️ Settings** button and select **Save & Reindex**.
+4. Start typing (at least 3 characters) — results with code highlighting will appear instantly. Click on a result to jump directly to the matched line.
+5. Click **▼ Replace** to open the replace panel. Hover over a result and click `Replace` for a surgical fix, or use `Replace All`.
+6. Use the `Aa` or `.*` toggles in the search input to use case-sensitive or RegEx searches.
 
 ## ⚙️ Configuration
 
-You can customize the extension via VS Code Settings (`Ctrl+,` or `Cmd+,`):
-* `fastIndex.excludePatterns`: Glob patterns for files/folders to ignore (e.g., `node_modules`, `dist`).
-* `fastIndex.maxResults`: Maximum number of search results to render (default is 50).
-* `fastIndex.debounceDelay`: Input delay in milliseconds before triggering the search (default is 250).
+You can customize the extension directly via the **⚙️ Settings** UI in the sidebar:
+* **Include Extensions:** Limit indexing to specific file types (e.g., `ts,js,md`). Leave empty to index everything.
+* **Exclude Patterns:** Glob patterns for files/folders to ignore (e.g., `{**/node_modules/**,**/.git/**}`).
+* **Max File Size (KB):** Prevent the indexer from choking on huge minified or binary files (default is `512` KB).
+* **Max Search Results:** Limit the number of snippets shown to keep the UI responsive (default is `50`).
 
 ## 🛠 Architecture (Under the Hood)
 
-The plugin uses `Map` and `Set` data structures for lightning-fast memory access, serialized into JSON and stored in the workspace's isolated `storageUri`. A fast set intersection algorithm allows finding exact partial matches across thousands of files in milliseconds.
+The plugin uses `Map` and `Set` data structures for lightning-fast memory access, serialized into JSON and stored in the workspace's isolated `storageUri`. A fast set intersection algorithm allows finding exact partial matches across thousands of files in milliseconds. When searching with Regular Expressions or complex special characters, the plugin gracefully falls back to rapid concurrent scanning of cached files.

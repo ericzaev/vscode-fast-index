@@ -17,7 +17,7 @@
         {
           "id": "fast-index-explorer",
           "title": "Fast Index",
-          "icon": "$(search)"
+          "icon": "$(zap)"
         }
       ]
     },
@@ -39,6 +39,11 @@
     "configuration": {
       "title": "Fast Indexer",
       "properties": {
+        "fastIndex.includeExtensions": {
+          "type": "string",
+          "default": "",
+          "description": "Comma-separated list of file extensions to index (e.g., ts,js,md). Leave empty to index all extensions."
+        },
         "fastIndex.excludePatterns": {
           "type": "string",
           "default": "{**/node_modules/**,**/.git/**,**/dist/**,**/out/**,**/*.png,**/*.jpg,**/*.svg}",
