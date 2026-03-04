@@ -1,0 +1,61 @@
+{
+  "name": "vscode-fast-index",
+  "displayName": "Fast Project Indexer",
+  "description": "Lightning-fast text search for VS Code using a background inverted trigram index.",
+  "publisher": "eric",
+  "version": "0.0.1",
+  "engines": {
+    "vscode": "^1.80.0"
+  },
+  "categories": [
+    "Other"
+  ],
+  "main": "./out/extension.js",
+  "contributes": {
+    "views": {
+      "search": [
+        {
+          "type": "webview",
+          "id": "fast-index.sidebar",
+          "name": "Fast Index Search"
+        }
+      ]
+    },
+    "commands": [
+      {
+        "command": "vscode-fast-index.buildIndex",
+        "title": "Fast Index: Build Project Index"
+      }
+    ],
+    "configuration": {
+      "title": "Fast Indexer",
+      "properties": {
+        "fastIndex.excludePatterns": {
+          "type": "string",
+          "default": "{**/node_modules/**,**/.git/**,**/dist/**,**/out/**,**/*.png,**/*.jpg,**/*.svg}",
+          "description": "File and folder patterns to ignore during indexing (Glob format)."
+        },
+        "fastIndex.maxResults": {
+          "type": "number",
+          "default": 50,
+          "description": "Maximum number of search results to display."
+        },
+        "fastIndex.debounceDelay": {
+          "type": "number",
+          "default": 250,
+          "description": "Input delay (in milliseconds) before triggering the search."
+        }
+      }
+    }
+  },
+  "scripts": {
+    "vscode:prepublish": "npm run compile",
+    "compile": "tsc -p ./",
+    "watch": "tsc -watch -p ./"
+  },
+  "devDependencies": {
+    "@types/node": "^25.3.3",
+    "@types/vscode": "^1.109.0",
+    "typescript": "^5.9.3"
+  }
+}
