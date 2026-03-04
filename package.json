@@ -5,15 +5,24 @@
   "publisher": "eric",
   "version": "0.0.1",
   "engines": {
-    "vscode": "^1.80.0"
+    "vscode": "^1.109.0"
   },
   "categories": [
     "Other"
   ],
   "main": "./out/extension.js",
   "contributes": {
+    "viewsContainers": {
+      "activitybar": [
+        {
+          "id": "fast-index-explorer",
+          "title": "Fast Index",
+          "icon": "$(search)"
+        }
+      ]
+    },
     "views": {
-      "search": [
+      "fast-index-explorer": [
         {
           "type": "webview",
           "id": "fast-index.sidebar",
@@ -35,6 +44,11 @@
           "default": "{**/node_modules/**,**/.git/**,**/dist/**,**/out/**,**/*.png,**/*.jpg,**/*.svg}",
           "description": "File and folder patterns to ignore during indexing (Glob format)."
         },
+        "fastIndex.maxFileSizeKB": {
+          "type": "number",
+          "default": 512,
+          "description": "Maximum file size in kilobytes to index. Files larger than this will be skipped."
+        },
         "fastIndex.maxResults": {
           "type": "number",
           "default": 50,
@@ -51,7 +65,9 @@
   "scripts": {
     "vscode:prepublish": "npm run compile",
     "compile": "tsc -p ./",
-    "watch": "tsc -watch -p ./"
+    "watch": "tsc -watch -p ./",
+    "build": "npm run compile",
+    "package": "vsce package"
   },
   "devDependencies": {
     "@types/node": "^25.3.3",

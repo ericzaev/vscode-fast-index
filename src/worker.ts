@@ -13,10 +13,15 @@ function getTrigrams(text: string): string[] {
     return Array.from(trigrams);
 }
 
-parentPort?.on('message', (message: { type: string, filePath?: string, filePaths?: string[] }) => {
+parentPort?.on('message', (message: { type: string, filePath?: string, filePaths?: string[], maxFileSizeKB?: number }) => {
+    const maxSizeBytes = (message.maxFileSizeKB || 512) * 1024;
+
     if (message.type === 'processBatch' && message.filePaths) {
         for (const filePath of message.filePaths) {
             try {
+                const stats = fs.statSync(filePath);
+                if (stats.size > maxSizeBytes) continue;
+
                 const content = fs.readFileSync(filePath, 'utf-8');
                 const trigrams = getTrigrams(content);
                 parentPort?.postMessage({ type: 'fileDone', filePath, trigrams });
@@ -27,6 +32,9 @@ parentPort?.on('message', (message: { type: string, filePath?: string, filePaths
 
     if (message.type === 'processSingle' && message.filePath) {
         try {
+            const stats = fs.statSync(message.filePath);
+            if (stats.size > maxSizeBytes) return;
+
             const content = fs.readFileSync(message.filePath, 'utf-8');
             const trigrams = getTrigrams(content);
             parentPort?.postMessage({ type: 'singleDone', filePath: message.filePath, trigrams });

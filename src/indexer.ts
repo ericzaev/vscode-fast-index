@@ -73,6 +73,7 @@ export class ProjectIndexer {
 
         const config = vscode.workspace.getConfiguration('fastIndex');
         const excludePattern = config.get<string>('excludePatterns') || '{**/node_modules/**,**/.git/**}';
+        const maxFileSizeKB = config.get<number>('maxFileSizeKB') || 512;
 
         const files = await vscode.workspace.findFiles('**/*', excludePattern);
         const filePaths = files.map(f => f.fsPath);
@@ -102,7 +103,7 @@ export class ProjectIndexer {
                     }
                 };
                 this.worker.on('message', onMessage);
-                this.worker.postMessage({ type: 'processBatch', filePaths });
+                this.worker.postMessage({ type: 'processBatch', filePaths, maxFileSizeKB });
             });
         });
     }
@@ -123,7 +124,9 @@ export class ProjectIndexer {
     public updateFile(filePath: string) {
         if (filePath.includes('node_modules') || filePath.includes('.git')) return;
         this.removeFileFromIndex(filePath);
-        this.worker.postMessage({ type: 'processSingle', filePath });
+        const config = vscode.workspace.getConfiguration('fastIndex');
+        const maxFileSizeKB = config.get<number>('maxFileSizeKB') || 512;
+        this.worker.postMessage({ type: 'processSingle', filePath, maxFileSizeKB });
     }
 
     public deleteFile(filePath: string) {

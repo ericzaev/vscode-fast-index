@@ -27,6 +27,22 @@ export class SidebarProvider implements vscode.WebviewViewProvider {
                     this._view?.webview.postMessage({ type: 'results', value: snippets });
                     break;
                 }
+                case 'replaceSingle': {
+                    const { file, line, query, replaceText } = data.value;
+                    await this.replaceInFile(file, line, query, replaceText);
+                    const files = this.indexer.search(query);
+                    const snippets = await this.getSnippets(files, query);
+                    this._view?.webview.postMessage({ type: 'results', value: snippets });
+                    break;
+                }
+                case 'replaceAll': {
+                    const { results, query, replaceText } = data.value;
+                    await this.replaceAllInFiles(results, query, replaceText);
+                    const files = this.indexer.search(query);
+                    const snippets = await this.getSnippets(files, query);
+                    this._view?.webview.postMessage({ type: 'results', value: snippets });
+                    break;
+                }
                 case 'rebuildIndex': {
                     vscode.commands.executeCommand('vscode-fast-index.buildIndex');
                     break;
@@ -44,6 +60,38 @@ export class SidebarProvider implements vscode.WebviewViewProvider {
         });
     }
 
+    private async replaceInFile(file: string, line: number, query: string, replaceText: string) {
+        const edit = new vscode.WorkspaceEdit();
+        await this.applyReplacement(file, line, query, replaceText, edit);
+        await vscode.workspace.applyEdit(edit);
+    }
+
+    private async replaceAllInFiles(results: any[], query: string, replaceText: string) {
+        const edit = new vscode.WorkspaceEdit();
+        for (const res of results) {
+            await this.applyReplacement(res.file, res.line, query, replaceText, edit);
+        }
+        await vscode.workspace.applyEdit(edit);
+    }
+
+    private async applyReplacement(file: string, line: number, query: string, replaceText: string, edit: vscode.WorkspaceEdit) {
+        try {
+            const uri = vscode.Uri.file(file);
+            const document = await vscode.workspace.openTextDocument(uri);
+            const lineText = document.lineAt(line).text;
+            
+            const escapedQuery = query.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+            const regex = new RegExp(escapedQuery, 'gi');
+            let match;
+            while ((match = regex.exec(lineText)) !== null) {
+                const range = new vscode.Range(line, match.index, line, match.index + match[0].length);
+                edit.replace(uri, range, replaceText);
+            }
+        } catch (e) {
+            console.error("Replacement error:", e);
+        }
+    }
+
     private async getSnippets(files: string[], query: string) {
         const snippets: any[] = [];
         const lowerQuery = query.toLowerCase();
@@ -51,27 +99,29 @@ export class SidebarProvider implements vscode.WebviewViewProvider {
         const config = vscode.workspace.getConfiguration('fastIndex');
         const maxResults = config.get<number>('maxResults') || 50;
 
-        const promises = files.slice(0, maxResults).map(async (file) => {
+        const promises = files.map(async (file) => {
+            const fileResults: any[] = [];
             try {
                 const content = await fs.promises.readFile(file, 'utf-8');
                 const lines = content.split('\n');
                 for (let i = 0; i < lines.length; i++) {
                     if (lines[i].toLowerCase().includes(lowerQuery)) {
-                        return {
+                        fileResults.push({
                             file: file, fileName: vscode.workspace.asRelativePath(file), line: i, text: lines[i].trim()
-                        };
+                        });
                     }
                 }
             } catch (e) {}
-            return null;
+            return fileResults;
         });
 
         const results = await Promise.all(promises);
         for (const res of results) {
-            if (res) snippets.push(res);
+            snippets.push(...res);
+            if (snippets.length >= maxResults) break;
         }
 
-        return snippets;
+        return snippets.slice(0, maxResults);
     }
 
     private _getHtmlForWebview() {
@@ -84,37 +134,85 @@ export class SidebarProvider implements vscode.WebviewViewProvider {
             <head>
                 <style>
                     body { font-family: var(--vscode-font-family); padding: 10px; }
-                    .search-container { display: flex; gap: 5px; margin-bottom: 10px; }
-                    input { flex-grow: 1; padding: 6px; background: var(--vscode-input-background); color: var(--vscode-input-foreground); border: 1px solid var(--vscode-input-border); outline: none; box-sizing: border-box; }
-                    input:focus { border-color: var(--vscode-focusBorder); }
-                    button { background: var(--vscode-button-background); color: var(--vscode-button-foreground); border: none; padding: 6px 10px; cursor: pointer; display: flex; align-items: center; justify-content: center; }
+                    .search-panel { display: flex; flex-direction: column; gap: 5px; margin-bottom: 10px; }
+                    .input-group { display: flex; align-items: center; background: var(--vscode-input-background); border: 1px solid var(--vscode-input-border); }
+                    .input-group:focus-within { border-color: var(--vscode-focusBorder); }
+                    .input-group input { flex-grow: 1; padding: 6px; background: transparent; color: var(--vscode-input-foreground); border: none; outline: none; box-sizing: border-box; }
+                    
+                    .actions { display: flex; gap: 5px; margin-bottom: 10px; }
+                    .actions button { flex: 1; }
+                    button { background: var(--vscode-button-background); color: var(--vscode-button-foreground); border: none; padding: 6px 10px; cursor: pointer; display: flex; align-items: center; justify-content: center; font-size: 0.9em; }
                     button:hover { background: var(--vscode-button-hoverBackground); }
-                    .result-item { padding: 6px; margin-bottom: 6px; cursor: pointer; border-left: 2px solid transparent; }
+                    
+                    .result-item { display: flex; flex-direction: column; padding: 6px; margin-bottom: 4px; cursor: pointer; border-left: 2px solid transparent; }
                     .result-item:hover { background: var(--vscode-list-hoverBackground); border-left: 2px solid var(--vscode-activityBarBadge-background); }
+                    
+                    .result-header { display: flex; justify-content: space-between; align-items: center; }
                     .file-name { font-weight: bold; font-size: 0.9em; color: var(--vscode-textLink-foreground); }
+                    
+                    .replace-btn { display: none; background: var(--vscode-button-secondaryBackground); color: var(--vscode-button-secondaryForeground); padding: 2px 8px; font-size: 0.8em; border-radius: 2px; }
+                    .replace-btn:hover { background: var(--vscode-button-secondaryHoverBackground); }
+                    .result-item:hover .replace-btn { display: block; }
+
                     .snippet { font-family: monospace; font-size: 0.85em; opacity: 0.8; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-top: 2px; }
                     .highlight { background-color: var(--vscode-editor-findMatchHighlightBackground); color: var(--vscode-editor-foreground); border-radius: 2px; font-weight: bold; }
                 </style>
             </head>
             <body>
-                <div class="search-container">
-                    <input type="text" id="searchInput" placeholder="Search from 3 characters..." />
-                    <button id="reindexBtn" title="Rebuild project index">🔄</button>
+                <div class="search-panel">
+                    <div class="input-group">
+                        <input type="text" id="searchInput" placeholder="Search..." />
+                    </div>
+                    <div class="input-group" id="replaceGroup" style="display: none;">
+                        <input type="text" id="replaceInput" placeholder="Replace with..." />
+                    </div>
                 </div>
+                
+                <div class="actions">
+                    <button id="toggleReplaceBtn" title="Toggle Replace Mode">▼ Replace</button>
+                    <button id="reindexBtn" title="Rebuild Index">🔄 Index</button>
+                </div>
+                <div class="actions" id="replaceActions" style="display: none;">
+                    <button id="replaceAllBtn">Replace All</button>
+                </div>
+                
                 <div id="results"></div>
 
                 <script>
                     const vscode = acquireVsCodeApi();
-                    const input = document.getElementById('searchInput');
+                    const searchInput = document.getElementById('searchInput');
+                    const replaceInput = document.getElementById('replaceInput');
                     const resultsDiv = document.getElementById('results');
                     const reindexBtn = document.getElementById('reindexBtn');
+                    const toggleReplaceBtn = document.getElementById('toggleReplaceBtn');
+                    const replaceGroup = document.getElementById('replaceGroup');
+                    const replaceActions = document.getElementById('replaceActions');
+                    const replaceAllBtn = document.getElementById('replaceAllBtn');
+
+                    let isReplaceMode = false;
+                    let currentResults = [];
+
+                    toggleReplaceBtn.addEventListener('click', () => {
+                        isReplaceMode = !isReplaceMode;
+                        replaceGroup.style.display = isReplaceMode ? 'flex' : 'none';
+                        replaceActions.style.display = isReplaceMode ? 'flex' : 'none';
+                        toggleReplaceBtn.innerText = isReplaceMode ? '▲ Replace' : '▼ Replace';
+                    });
 
                     reindexBtn.addEventListener('click', () => {
                         vscode.postMessage({ type: 'rebuildIndex' });
                     });
 
+                    replaceAllBtn.addEventListener('click', () => {
+                        if (currentResults.length === 0) return;
+                        const replaceText = replaceInput.value;
+                        const query = searchInput.value.trim();
+                        if (query.length < 3) return;
+                        vscode.postMessage({ type: 'replaceAll', value: { results: currentResults, query, replaceText } });
+                    });
+
                     let timeout;
-                    input.addEventListener('keyup', (e) => {
+                    searchInput.addEventListener('input', (e) => {
                         clearTimeout(timeout);
                         timeout = setTimeout(() => { 
                             vscode.postMessage({ type: 'search', value: e.target.value }); 
@@ -136,17 +234,40 @@ export class SidebarProvider implements vscode.WebviewViewProvider {
                     window.addEventListener('message', event => {
                         const message = event.data;
                         if (message.type === 'results') {
+                            currentResults = message.value;
                             resultsDiv.innerHTML = '';
-                            if (message.value.length === 0) {
+                            if (currentResults.length === 0) {
                                 resultsDiv.innerHTML = '<p style="opacity: 0.6; font-size: 0.9em;">No results found.</p>';
                                 return;
                             }
-                            const currentQuery = input.value.trim();
-                            message.value.forEach(item => {
+                            const currentQuery = searchInput.value.trim();
+                            currentResults.forEach(item => {
                                 const div = document.createElement('div');
                                 div.className = 'result-item';
-                                const highlightedSnippet = highlightText(item.text, currentQuery);
-                                div.innerHTML = \`<div class="file-name">\${escapeHtml(item.fileName)} :\${item.line + 1}</div><div class="snippet">\${highlightedSnippet}</div>\`;
+                                
+                                const header = document.createElement('div');
+                                header.className = 'result-header';
+                                header.innerHTML = \`<span class="file-name">\${escapeHtml(item.fileName)} :\${item.line + 1}</span>\`;
+                                
+                                const replaceBtn = document.createElement('button');
+                                replaceBtn.className = 'replace-btn';
+                                replaceBtn.innerText = 'Replace';
+                                replaceBtn.onclick = (e) => {
+                                    e.stopPropagation();
+                                    vscode.postMessage({ 
+                                        type: 'replaceSingle', 
+                                        value: { file: item.file, line: item.line, query: currentQuery, replaceText: replaceInput.value } 
+                                    });
+                                };
+                                header.appendChild(replaceBtn);
+
+                                const snippet = document.createElement('div');
+                                snippet.className = 'snippet';
+                                snippet.innerHTML = highlightText(item.text, currentQuery);
+
+                                div.appendChild(header);
+                                div.appendChild(snippet);
+                                
                                 div.onclick = () => { vscode.postMessage({ type: 'openFile', value: { file: item.file, line: item.line } }); };
                                 resultsDiv.appendChild(div);
                             });

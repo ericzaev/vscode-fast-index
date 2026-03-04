@@ -23,6 +23,7 @@ __MACOSX
 /*
 !.gitignore
 !.vscode
+!.vscodeignore
 !src
 !tsconfig.json
 !package.json
