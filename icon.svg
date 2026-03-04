@@ -1,0 +1,11 @@
+<svg width="256" height="256" viewBox="0 0 256 256" xmlns="http://www.w3.org/2000/svg">
+  <!-- Background -->
+  <rect width="256" height="256" fill="#2D2D2D" rx="48"/>
+  
+  <!-- Magnifying Glass -->
+  <circle cx="100" cy="100" r="45" stroke="#4DAAF2" stroke-width="18" fill="none" />
+  <line x1="130" y1="130" x2="180" y2="180" stroke="#4DAAF2" stroke-width="24" stroke-linecap="round" />
+  
+  <!-- Yellow Lightning Bolt (overlapping) -->
+  <path d="M160 30 L110 130 L150 130 L130 230 L200 110 L160 110 Z" fill="#FFD700" stroke="#2D2D2D" stroke-width="6" stroke-linejoin="round" />
+</svg>

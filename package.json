@@ -1,6 +1,6 @@
 {
   "name": "vscode-fast-index",
-  "displayName": "Fast Project Indexer",
+  "displayName": "Fast Project Indexer ",
   "description": "Lightning-fast text search for VS Code using a background inverted trigram index.",
   "publisher": "eric",
   "version": "0.0.1",
@@ -10,15 +10,16 @@
   "categories": [
     "Other"
   ],
+  "icon": "icon.png",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/ericzaev/vscode-fast-index.git"
+  },
   "keywords": [
     "search",
     "fast",
     "index",
-    "large project",
-    "поиск",
-    "быстрый поиск",
-    "индекс",
-    "большой проект"
+    "large project"
   ],
   "main": "./out/extension.js",
   "contributes": {
